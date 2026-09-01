@@ -1,84 +1,71 @@
 import os
-import time
 import requests
+from countries import get_country_by_name
 
 TOKEN = os.getenv("RUBIKA_TOKEN")
 
 if not TOKEN:
-    raise RuntimeError("RUBIKA_TOKEN تنظیم نشده است.")
+    raise ValueError("RUBIKA_TOKEN تنظیم نشده است")
 
 BASE_URL = f"https://botapi.rubika.ir/v3/{TOKEN}"
 
 
-def api_call(method, data=None):
+def send_message(chat_id, text):
+    url = f"{BASE_URL}/sendMessage"
+
+    data = {
+        "chat_id": chat_id,
+        "text": text
+    }
+
     response = requests.post(
-        f"{BASE_URL}/{method}",
-        json=data or {},
+        url,
+        json=data,
         timeout=30
     )
-    response.raise_for_status()
+
     return response.json()
 
 
-def send_message(chat_id, text):
-    return api_call("sendMessage", {
-        "chat_id": str(chat_id),
-        "text": text
-    })
+def format_statement(country, statement):
+    return f"""🏳️ 𝐎𝐅𝐅𝐈𝐂𝐈𝐀𝐋 𝐒𝐓𝐀𝐓𝐄𝐌𝐄𝐍𝐓
+━━━━━━━━━━━━━━━━━━
+📜 𝐒𝐓𝐀𝐓𝐄𝐌𝐄𝐍𝐓
+
+{statement}
+
+━━━━━━━━━━━━━━━━━━
+🌐 {country["group"]}
+🏳️ {country["name"]}"""
 
 
-offset_id = None
+def get_country_info(country_name):
+    country = get_country_by_name(country_name)
 
-print("ربات اتلانتیس وار فعال شد!")
+    if not country:
+        return None
 
-while True:
-    try:
-        data = {
-            "limit": 10
-        }
+    return {
+        "name": country["name"],
+        "group": country["group"],
+        "tag": country["tag"],
+        "vip": country["vip"],
+        "occupied": country["occupied"]
+    }
 
-        if offset_id:
-            data["offset_id"] = offset_id
 
-        result = api_call("getUpdates", data)
+def main():
+    print("Atlantis War Bot Started")
 
-        for update in result.get("updates", []):
-            chat_id = update.get("chat_id")
+    # تست اتصال به اطلاعات کشورها
+    country = get_country_info("بریتانیا")
 
-            message = update.get("new_message") or {}
-            text = message.get("text") or ""
+    if country:
+        print("کشور:", country["name"])
+        print("کد:", country["tag"])
+        print("گروه:", country["group"])
+        print("VIP:", country["vip"])
 
-            if not chat_id:
-                continue
 
-            if text == "/start":
-                send_message(
-                    chat_id,
-                    "🌊 به ربات اتلانتیس وار خوش آمدید!\n\n"
-                    "🤖 ربات با موفقیت فعال است."
-                )
-
-            elif text == "/help":
-                send_message(
-                    chat_id,
-                    "📚 راهنمای ربات\n\n"
-                    "/start - شروع ربات\n"
-                    "/help - راهنما"
-                )
-
-            elif text:
-                send_message(
-                    chat_id,
-                    "✅ پیام شما دریافت شد."
-                )
-
-        next_offset = result.get("next_offset_id")
-
-        if next_offset:
-            offset_id = str(next_offset)
-
-        time.sleep(2)
-
-    except Exception as error:
-        print("خطا:", error)
-        time.sleep(5)
+if __name__ == "__main__":
+    main()
